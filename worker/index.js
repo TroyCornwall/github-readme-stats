@@ -2,6 +2,11 @@
 // Sets up a process.env shim so all existing src/ code works unchanged,
 // then routes requests to the same handlers Vercel uses.
 
+import axios from "axios";
+
+// Workers fetch() does not send a User-Agent by default. GitHub API requires one.
+axios.defaults.headers.common["User-Agent"] = "github-readme-stats";
+
 const ROUTES = {
   "/api": () => import("../api/index.js"),
   "/api/pin": () => import("../api/pin.js"),

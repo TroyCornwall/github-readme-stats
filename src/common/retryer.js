@@ -6,10 +6,10 @@ import { logger } from "./log.js";
 // Script variables.
 
 // Count the number of GitHub API tokens available.
-const PATs = Object.keys(process.env).filter((key) =>
-  /PAT_\d*$/.exec(key),
-).length;
-const RETRIES = process.env.NODE_ENV === "test" ? 7 : PATs;
+// Evaluated lazily so process.env is populated when running in Cloudflare Workers.
+const getPATs = () =>
+  Object.keys(process.env).filter((key) => /PAT_\d*$/.exec(key)).length;
+const getRETRIES = () => (process.env.NODE_ENV === "test" ? 7 : getPATs());
 
 /**
  * @typedef {import("axios").AxiosResponse} AxiosResponse Axios response.
@@ -25,6 +25,7 @@ const RETRIES = process.env.NODE_ENV === "test" ? 7 : PATs;
  * @returns {Promise<any>} The response from the fetcher function.
  */
 const retryer = async (fetcher, variables, retries = 0) => {
+  const RETRIES = getRETRIES();
   if (!RETRIES) {
     throw new CustomError("No GitHub API tokens found", CustomError.NO_TOKENS);
   }
@@ -93,5 +94,7 @@ const retryer = async (fetcher, variables, retries = 0) => {
   }
 };
 
+// Eager value for backward-compatible export (used in tests where process.env is available at load).
+const RETRIES = getRETRIES();
 export { retryer, RETRIES };
 export default retryer;
