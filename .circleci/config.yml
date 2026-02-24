@@ -1,0 +1,83 @@
+version: 2.1
+
+jobs:
+  build:
+    docker:
+      - image: cimg/node:22.0
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - npm-{{ checksum "package-lock.json" }}
+      - run:
+          name: Install dependencies
+          command: npm ci
+      - save_cache:
+          key: npm-{{ checksum "package-lock.json" }}
+          paths:
+            - node_modules
+      - run:
+          name: Run tests
+          command: npm test
+
+  deploy:
+    docker:
+      - image: cimg/node:22.0
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - npm-{{ checksum "package-lock.json" }}
+      - run:
+          name: Install dependencies
+          command: npm ci
+      - run:
+          name: Deploy to Cloudflare Workers
+          command: npx wrangler deploy
+
+  notify:
+    parameters:
+      stages:
+        type: string
+    docker:
+      - image: cimg/base:current
+    steps:
+      - run:
+          name: Send Discord notification
+          command: |
+            curl -s -H "Content-Type: application/json" -d "{
+              \"embeds\": [{
+                \"title\": \"Pipeline Passed\",
+                \"color\": 3066993,
+                \"description\": \"<< parameters.stages >>\",
+                \"footer\": {\"text\": \"${CIRCLE_PROJECT_REPONAME} • ${CIRCLE_BRANCH}\"}
+              }]
+            }" "$DISCORD_WEBHOOK_URL"
+
+workflows:
+  build-and-deploy:
+    jobs:
+      - build
+      - deploy:
+          requires:
+            - build
+          filters:
+            branches:
+              only: master
+      - notify:
+          name: notify-build
+          stages: "build"
+          requires:
+            - build
+          filters:
+            branches:
+              ignore: master
+      - notify:
+          name: notify-deploy
+          stages: "build, deploy"
+          requires:
+            - build
+            - deploy
+          filters:
+            branches:
+              only: master
