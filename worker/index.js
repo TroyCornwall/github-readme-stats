@@ -38,7 +38,9 @@ export default {
     const handler = mod.default;
 
     // Build a Vercel-compatible req/res pair.
+    // Hardcode username so this worker only serves stats for TroyCornwall.
     const query = Object.fromEntries(url.searchParams.entries());
+    query.username = "TroyCornwall";
     const req = { query };
 
     const headers = new Headers();
